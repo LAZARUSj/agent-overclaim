@@ -70,7 +70,7 @@ def chat_completion(
     *,
     model: str | None = None,
     temperature: float = 0.0,
-    max_tokens: int = 600,
+    max_tokens: int = 4096,
     task_id: str | None = None,
     gold: float | None = None,
     log_path: str | Path | None = None,
@@ -117,7 +117,9 @@ def chat_completion(
                 time.sleep(2**attempt)
                 continue
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            data = response.json()
+            choice = data["choices"][0]
+            content = choice["message"].get("content") or ""
             if log_path is not None:
                 _append_log(
                     log_path,
@@ -125,9 +127,12 @@ def chat_completion(
                         "task_id": task_id,
                         "provider": provider,
                         "model": model,
+                        "served_model": data.get("model"),
                         "system": system,
                         "user": user,
                         "response": content,
+                        "finish_reason": choice.get("finish_reason"),
+                        "usage": data.get("usage"),
                         "latency_s": latency,
                         "status": response.status_code,
                     },
