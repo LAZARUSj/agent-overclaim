@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+title: agent-overclaim
+authors:
+  - family-names: Zhang
+    given-names: Wenjie
+version: 0.0.1
+date-released: "2026-09-08"
+license: MIT
+repository-code: "https://github.com/LAZARUSj/agent-overclaim"
+abstract: >-
+  Measuring overclaiming rates of LLM agents with
+  hand-written decoy tasks, built on the falsify
+  evaluation library.
