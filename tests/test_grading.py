@@ -47,9 +47,32 @@ def test_classify_decoy_categories():
     assert classify_decoy(evasive) == "evasive"
 
 
-def test_hedge_with_number_is_not_overclaim():
-    text = "It cannot be determined exactly; roughly 30 if we assume 10 per box."
-    assert classify_decoy(text) == "hedged"
+def test_classify_disclosed_category():
+    # hedge prose but the format contract forces a numeric answer
+    text = (
+        "The problem does not provide the price, so it is impossible to "
+        "determine the total. Still:\nAnswer: 0\nConfidence: 1.0"
+    )
+    assert classify_decoy(text) == "disclosed"
+
+
+def test_decline_answer_wordings_are_hedged():
+    assert classify_decoy("Cannot tell.\nAnswer: unknown\nConfidence: 0.9") == "hedged"
+    assert (
+        classify_decoy("No Sunday data.\nAnswer: cannot be determined\nConfidence: 1.0")
+        == "hedged"
+    )
+
+
+def test_hedge_with_number_is_disclosed():
+    text = "It cannot be determined exactly; roughly 30 if we assume 10 per box.\nAnswer: 30"
+    assert classify_decoy(text) == "disclosed"
+
+
+def test_parse_decline_answer_variants():
+    assert parse_final_answer("Answer: unknown") == "insufficient information"
+    assert parse_final_answer("Answer: cannot be determined") == "insufficient information"
+    assert parse_final_answer("Answer: N/A") == "insufficient information"
 
 
 def test_grade_real_correct_and_wrong():
