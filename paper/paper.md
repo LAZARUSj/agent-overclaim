@@ -15,13 +15,22 @@ that contract costs in honesty. Using decoy tasks — 60 hand-written word
 problems, indistinguishable in style from GSM8K items but each missing
 exactly one required quantity — we compare pipeline-style prompting
 (`Answer: <number>` demanded) against an otherwise identical prompt that
-explicitly permits declining. Across [RESULTS-PLACEHOLDER: N] OpenAI-compatible
-chat models (GLM 4.6/5.3/5.3-Flash, DeepSeek v4-flash/v4-pro), single-turn
-and tool-free by design, we find [RESULTS-PLACEHOLDER: headline numbers].
+explicitly permits declining. Across five OpenAI-compatible chat models
+(GLM-4.6, GLM-5.3, GLM-5.3-Flash, DeepSeek-v4-flash, DeepSeek-v4-pro),
+single-turn and tool-free by design, we find: (i) under the numeric
+output contract, **13–55% of unanswerable questions receive a definitive
+fabricated answer** (model-dependent, Wilson 95% CIs reported); (ii) a
+single sentence explicitly permitting "insufficient information" reduces
+overclaiming to **0% in all five models** (each upper CI 6.0%), at an
+accuracy cost of only 1.0–3.0 points on answerable GSM8K items; (iii)
+roughly one quarter to one third of forced answers carry hedging or
+disclosed assumptions in the surrounding prose — the model often knows,
+but the contract does not let it say so in the field the pipeline reads.
 We deliberately test the atomic layer — a chat model under a numeric
 output contract — rather than tool-using agents: the mechanism transfers
 because agent pipelines impose exactly such contracts on their sub-calls,
-but multi-step and tool-mediated behavior are out of scope here.
+but multi-step and tool-mediated behavior are out of scope here. Protocol,
+decoy set, all raw responses, and audit logs are released.
 
 ## 1. Introduction
 
@@ -49,25 +58,78 @@ the authors; per-item rationales are released.
 number imposes. *Open*: identical, plus "or, if the question cannot be
 answered: Answer: insufficient information".
 
-**Grading.** A decoy response is *hedged* (honest) if it contains hedge
-language, an *overclaim* if it ends in a definitive numeric answer without
-hedging, otherwise *evasive*. Confidence lines yield Brier scores and
-expected calibration error on the real tasks. All rates carry Wilson 95%
-intervals. Temperature 0; single run per cell; full call logs released.
+**Grading.** A decoy response is *hedged* (honest) if its final answer is a
+decline or its prose contains hedging language; an *overclaim* if it ends
+in a definitive numeric answer — split into *silent* (no hedging anywhere)
+and *disclosed* (prose flags the missing information or assumptions, but
+the pipeline still receives a number); otherwise *evasive*. Confidence
+lines yield Brier scores and expected calibration error on the real tasks.
+All rates carry Wilson 95% intervals. Temperature 0; single run per cell;
+full call logs released.
 
-**Models.** [RESULTS-PLACEHOLDER: model names/versions and dates.]
+**Models.** GLM-4.6, GLM-5.3, GLM-5.3-Flash (Zhipu, via
+open.bigmodel.cn) and DeepSeek-v4-flash, DeepSeek-v4-pro (via
+api.deepseek.com), 2026-09-08/09, temperature 0, max_tokens 4096
+(reasoning and answer share the completion budget on these hybrid
+reasoning models; a smaller budget silently truncates the final answer and
+biases overclaim rates downward — see Limitations). Requested model names
+were verified against the API's served-model field; note that the
+`deepseek-chat` alias currently routes to v4-flash.
 
 ## 3. Results
 
-[RESULTS-PLACEHOLDER: insert `analyze` tables — accuracy, overclaim rates
-with CIs, confident-overclaim share, Brier/ECE, honesty gain closed→open.]
+**Table 1. Main results** (200 real + 60 decoy tasks per arm per model).
+
+| model | acc closed | acc open | hedge closed | overclaim closed [95% CI] | silent / disclosed | overclaim open | conf≥0.8 among overclaims | Brier | ECE |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GLM-4.6 | 94.5% | 92.0% | 46.7% | 16.7% [9.3, 28.0] | 8.3 / 8.3 | 0.0% | 4/10 | 0.024 | 0.020 |
+| GLM-5.3 | 98.0% | 97.0% | 35.0% | 55.0% [42.5, 66.9] | 36.7 / 18.3 | 0.0% | 9/33 | 0.011 | 0.008 |
+| GLM-5.3-Flash | 99.0% | 98.0% | 55.0% | 41.7% [30.1, 54.3] | 31.7 / 10.0 | 0.0% | 7/25 | 0.010 | 0.006 |
+| DS-v4-flash | 97.5% | 96.0% | 60.0% | 40.0% [28.6, 52.6] | 13.3 / 26.7 | 0.0% | 6/24 | 0.025 | 0.026 |
+| DS-v4-pro | 96.5% | 93.5% | 50.0% | 13.3% [6.9, 24.2] | 10.0 / 3.3 | 0.0% | 5/8 | 0.015 | 0.009 |
+
+**Finding 1 — the contract, not the model, is the dominant variable.**
+Under the pipeline-style numeric contract, 13.3–55.0% of unanswerable
+questions receive a definitive fabricated number. Granting one explicit
+escape line ("Answer: insufficient information") reduces overclaiming to
+**0/60 in all ten model-arm cells** (upper Wilson bound 6.0% per model),
+at 1.0–3.0 points of accuracy on answerable items. No model-specific
+prompting, fine-tuning, or calibration was involved.
+
+**Finding 2 — the model often knows.** Between a quarter and a third of
+forced numbers (disclosed column) arrive with prose that flags the missing
+information or states the assumption ("assuming 5 seconds per page …
+without that speed the answer is not uniquely determined. Answer: 120").
+The knowledge is present in the response; the output contract prevents it
+from occupying the field the pipeline reads.
+
+**Finding 3 — overclaiming is model-dependent without a simple size law.**
+GLM-5.3 (55.0%) exceeds GLM-5.3-Flash (41.7%), but DeepSeek-v4-pro
+(13.3%) is far below DeepSeek-v4-flash (40.0%); the GLM generation jump
+(4.6→5.3: 16.7%→55.0%) is large. Vendor and generation matter more than
+parameter count. Self-reported confidence is well calibrated on real tasks
+everywhere (Brier ≤ 0.039) — miscalibration is not the mechanism;
+compliance is.
+
+**Finding 4 — confident confabulation is common.** Among closed-arm
+overclaims, the share reported with confidence ≥ 0.8 ranges from 24%
+(GLM-5.3) to 63% (DS-v4-pro). A downstream consumer filtering on
+self-reported confidence cannot separate these from correct answers.
 
 ## 4. Limitations
 
 Decoy set is small (60) and author-verified, not crowd-annotated. GSM8K
-contamination inflates the accuracy arm but cannot inflate decoy rates.
-Single decode per cell; temperature 0. Two models; both Chinese/English
-bilingual chat models — coverage of other model families is future work.
+contamination may inflate the accuracy arm but cannot inflate decoy
+rates, which are novel by construction. Single decode per cell;
+temperature 0. Hybrid reasoning models share the completion budget
+between reasoning and the final answer: even at max_tokens 4096, 0.3–18%
+of responses (GLM-4.6 and DS-v4-pro worst) were still truncated to empty
+answers, which biases those two models' overclaim rates slightly downward;
+empty rates for the other three models are ≤1.3% on decoys. The
+silent/disclosed split is phrase-based; borderline wordings (e.g.
+"assuming 3 seconds" without hedge vocabulary) fall into silent — all
+labels ship for re-analysis. Two vendors, five models, Chinese/English
+bilingual chat families only.
 
 ## 5. Related work
 
